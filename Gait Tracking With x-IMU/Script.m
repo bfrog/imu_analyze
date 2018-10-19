@@ -17,8 +17,8 @@ end
 
 	filePath = 'Datasets/SamArmRotate.csv';
 
-startTime = 6;
-stopTime = 26;
+startTime = 10;
+stopTime = 16;
 
 % filePath = 'Datasets/stairsAndCorridor';
 % startTime = 5;
@@ -77,18 +77,18 @@ acc_mag = sqrt(accX.*accX + accY.*accY + accZ.*accZ);
 % HP filter accelerometer data
 filtCutOff = 0.001;
 [b, a] = butter(1, (2*filtCutOff)/(1/samplePeriod), 'high');
-acc_magFilt = filtfilt(b, a, acc_mag);
+acc_magFiltHp = filtfilt(b, a, acc_mag);
 
 % Compute absolute value
-acc_magFilt = abs(acc_magFilt);
+acc_magFiltHpAbs = abs(acc_magFiltHp);
 
 % LP filter accelerometer data
 filtCutOff = 5;
 [b, a] = butter(1, (2*filtCutOff)/(1/samplePeriod), 'low');
-acc_magFilt = filtfilt(b, a, acc_magFilt);
+acc_magFilt = filtfilt(b, a, acc_magFiltHpAbs);
 
 % Threshold detection
-stationary = acc_magFilt < 0.05;
+stationary = acc_magFilt < 0.1;
 
 % -------------------------------------------------------------------------
 % Plot data raw sensor data and stationary periods
@@ -109,6 +109,7 @@ ax(2) = subplot(2,1,2);
     plot(time, accX, 'r');
     plot(time, accY, 'g');
     plot(time, accZ, 'b');
+    plot(time, acc_magFiltHp, ':k');
     plot(time, acc_magFilt, ':k');
     plot(time, double(stationary), 'k', 'LineWidth', 2);	%Octave couldn't plot booleans
     title('Accelerometer');
@@ -262,13 +263,13 @@ posPlot = pos;
 quatPlot = quat;
 
 % Extend final sample to delay end of animation
-extraTime = 20;
+extraTime = 1;
 onesVector = ones(extraTime*(1/samplePeriod), 1);
 posPlot = [posPlot; [posPlot(end, 1)*onesVector, posPlot(end, 2)*onesVector, posPlot(end, 3)*onesVector]];
 quatPlot = [quatPlot; [quatPlot(end, 1)*onesVector, quatPlot(end, 2)*onesVector, quatPlot(end, 3)*onesVector, quatPlot(end, 4)*onesVector]];
 
 % Create 6 DOF animation
-SamplePlotFreq = 4;
+SamplePlotFreq = 1;
 Spin = 120;
 SixDofAnimation(posPlot, quatern2rotMat(quatPlot), ...
                 'SamplePlotFreq', SamplePlotFreq, 'Trail', 'All', ...
