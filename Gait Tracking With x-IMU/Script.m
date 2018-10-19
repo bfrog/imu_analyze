@@ -7,16 +7,15 @@ addpath('ximu_matlab_library');
 %OCTAVE 3.6.4 couldn't handle some of the Matlab features used in the script (e.g. class declarations -> ximu_matlab_library didn't work)
 %Modified the code to enable running it with Octave on Windows platform
 %OCTAVE
-if exist ('OCTAVE_VERSION', 'builtin') 
-	addpath('AHRS_Octave');
-end
+%if exist ('OCTAVE_VERSION', 'builtin') 
+%	addpath('AHRS_Octave');
+%end
 
 % -------------------------------------------------------------------------
 % Select dataset (comment in/out)
 %OCTAVE
 
-	filePath = 'Datasets/SamArmRotate.csv';
-
+filePath = 'Datasets/SamArmRotate.csv';
 startTime = 10;
 stopTime = 16;
 
@@ -32,25 +31,24 @@ stopTime = 16;
 % Import data
 
 samplePeriod = 1/1000.0;
-
-	xIMUdata = dlmread(filePath,',',1,0);
-  ax = xIMUdata(:,1);
-  ay = xIMUdata(:,2);
-  az = xIMUdata(:,3);
-  gx = xIMUdata(:,4);
-  gy = xIMUdata(:,5);
-  gz = xIMUdata(:,6);
-  numDataPoints = size(xIMUdata);
-  accScaleToG = 32/power(2,15);
-  gyroScale = 4000/power(2,15);
-  time = (0:numDataPoints-1)*samplePeriod;
-  time = time(:);
-  accX = ax*accScaleToG;
-  accY = ay*accScaleToG;
-  accZ = az*accScaleToG;
-  gyrX = gx*gyroScale;
-  gyrY = gy*gyroScale;
-  gyrZ = gz*gyroScale;
+xIMUdata = dlmread(filePath,',',1,0);
+ax = xIMUdata(:,1);
+ay = xIMUdata(:,2);
+az = xIMUdata(:,3);
+gx = xIMUdata(:,4);
+gy = xIMUdata(:,5);
+gz = xIMUdata(:,6);
+numDataPoints = size(xIMUdata);
+accScaleToG = 32/power(2,15);
+gyroScale = 4000/power(2,15);
+time = (0:numDataPoints-1)*samplePeriod;
+time = time(:);
+accX = ax*accScaleToG;
+accY = ay*accScaleToG;
+accZ = az*accScaleToG;
+gyrX = gx*gyroScale;
+gyrY = gy*gyroScale;
+gyrZ = gz*gyroScale;
 
 clear('xIMUdata');
 % -------------------------------------------------------------------------
@@ -73,9 +71,13 @@ accZ = accZ(indexSel, :);
 
 % Compute accelerometer magnitude
 acc_mag = sqrt(accX.*accX + accY.*accY + accZ.*accZ);
+acc_mag_stable = acc_mag(1:3000);
+size(acc_mag_stable)
+acc_mag_fft = fft(acc_mag_stable);
+acc_mag_fft_freqs = (0:3000-1)*(1000.0/3000.0)
 
 % HP filter accelerometer data
-filtCutOff = 0.001;
+filtCutOff = 0.1;
 [b, a] = butter(1, (2*filtCutOff)/(1/samplePeriod), 'high');
 acc_magFiltHp = filtfilt(b, a, acc_mag);
 
@@ -83,18 +85,20 @@ acc_magFiltHp = filtfilt(b, a, acc_mag);
 acc_magFiltHpAbs = abs(acc_magFiltHp);
 
 % LP filter accelerometer data
-filtCutOff = 5;
+filtCutOff = 3;
 [b, a] = butter(1, (2*filtCutOff)/(1/samplePeriod), 'low');
 acc_magFilt = filtfilt(b, a, acc_magFiltHpAbs);
 
-% Threshold detection
-stationary = acc_magFilt < 0.1;
 
+size(acc_magFilt)
+% Threshold detection
+stationary = acc_magFilt < 0.3;
+size(stationary)
 % -------------------------------------------------------------------------
 % Plot data raw sensor data and stationary periods
 
 figure('Position', [9 39 900 600], 'Number', 'off', 'Name', 'Sensor Data');
-ax(1) = subplot(2,1,1);
+ax(1) = subplot(3,1,1);
     hold on;
     plot(time, gyrX, 'r');
     plot(time, gyrY, 'g');
@@ -104,7 +108,7 @@ ax(1) = subplot(2,1,1);
     ylabel('Angular velocity (^\circ/s)');
     legend('X', 'Y', 'Z');
     hold off;
-ax(2) = subplot(2,1,2);
+ax(2) = subplot(3,1,2);
     hold on;
     plot(time, accX, 'r');
     plot(time, accY, 'g');
@@ -117,11 +121,15 @@ ax(2) = subplot(2,1,2);
     ylabel('Acceleration (g)');
     legend('X', 'Y', 'Z', 'Filtered', 'Stationary');
     hold off;
-
+ax(3) = subplot(3,1,3);
+    hold on;
+    plot(acc_mag_fft_freqs(1:100), acc_mag_fft(1:100));
+    xlabel("Frequency");
+    ylabel("Amplitude");
 if ~exist ('OCTAVE_VERSION', 'builtin')
 	linkaxes(ax,'x');	%Octave 3.6.4 had not implemented linkaxes
 end
-
+%pause;
 % -------------------------------------------------------------------------
 % Compute orientation
 
@@ -130,41 +138,20 @@ quat = zeros(length(time), 4);
 initPeriod = 2;
 indexSel = 1 : find(sign(time-(time(1)+initPeriod))+1, 1);
 
-if ~exist ('OCTAVE_VERSION', 'builtin')
-	AHRSalgorithm = AHRS('SamplePeriod', 1/256, 'Kp', 1, 'KpInit', 1);
-	for i = 1:2000
-		AHRSalgorithm.UpdateIMU([0 0 0], [mean(accX(indexSel)) mean(accY(indexSel)) mean(accZ(indexSel))]);
-	end
+AHRSalgorithm = AHRS('SamplePeriod', 1/1000.0, 'Kp', 1, 'KpInit', 1);
+for i = 1:2000
+    AHRSalgorithm.UpdateIMU([0 0 0], [mean(accX(indexSel)) mean(accY(indexSel)) mean(accZ(indexSel))]);
+end
 
-	% For all data
-	for t = 1:length(time)
-		if(stationary(t))
-			AHRSalgorithm.Kp = 0.5;
-		else
-			AHRSalgorithm.Kp = 0;
-		end
-		AHRSalgorithm.UpdateIMU(deg2rad([gyrX(t) gyrY(t) gyrZ(t)]), [accX(t) accY(t) accZ(t)]);
-		quat(t,:) = AHRSalgorithm.Quaternion;
-	end
-else	%classdef wasn't implemented in Octave 3.6.4
-	AHRSStruct = AHRS_Octave('SamplePeriod', 1/256, 'Kp', 1, 'KpInit', 1);
-	% Initial convergence
-	initPeriod = 2;
-	indexSel = 1 : find(sign(time-(time(1)+initPeriod))+1, 1);
-	for i = 1:2000
-		AHRSStruct = UpdateIMU(AHRSStruct,[0 0 0], [mean(accX(indexSel)) mean(accY(indexSel)) mean(accZ(indexSel))]);
-	end
-
-	% For all data
-	for t = 1:length(time)
-		if(stationary(t))
-			AHRSStruct.Kp = 0.5;
-		else
-			AHRSStruct.Kp = 0;
-		end
-		AHRSStruct = UpdateIMU(AHRSStruct,deg2rad([gyrX(t) gyrY(t) gyrZ(t)]), [accX(t) accY(t) accZ(t)]);
-		quat(t,:) = AHRSStruct.Quaternion;
-	end
+% For all data
+for t = 1:length(time)
+    if(stationary(t))
+        AHRSalgorithm.Kp = 0.5;
+    else
+        AHRSalgorithm.Kp = 0;
+    end
+    AHRSalgorithm.UpdateIMU(deg2rad([gyrX(t) gyrY(t) gyrZ(t)]), [accX(t) accY(t) accZ(t)]);
+    quat(t,:) = AHRSalgorithm.Quaternion;
 end
 
 % -------------------------------------------------------------------------
@@ -269,7 +256,7 @@ posPlot = [posPlot; [posPlot(end, 1)*onesVector, posPlot(end, 2)*onesVector, pos
 quatPlot = [quatPlot; [quatPlot(end, 1)*onesVector, quatPlot(end, 2)*onesVector, quatPlot(end, 3)*onesVector, quatPlot(end, 4)*onesVector]];
 
 % Create 6 DOF animation
-SamplePlotFreq = 1;
+SamplePlotFreq = 20;
 Spin = 120;
 SixDofAnimation(posPlot, quatern2rotMat(quatPlot), ...
                 'SamplePlotFreq', SamplePlotFreq, 'Trail', 'All', ...
