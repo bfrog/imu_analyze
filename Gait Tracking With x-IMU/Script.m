@@ -1,6 +1,7 @@
 clear;
 close all;
 clc;
+pkg load signal;
 addpath('Quaternions');
 addpath('ximu_matlab_library');
 %OCTAVE 3.6.4 couldn't handle some of the Matlab features used in the script (e.g. class declarations -> ximu_matlab_library didn't work)
@@ -13,11 +14,9 @@ end
 % -------------------------------------------------------------------------
 % Select dataset (comment in/out)
 %OCTAVE
-if exist ('OCTAVE_VERSION', 'builtin') 
-	filePath = 'Datasets/straightLine_CalInertialAndMag.csv';
-else
-	filePath = 'Datasets/straightLine';
-end 
+
+	filePath = 'Datasets/SamArmRotate.csv';
+
 startTime = 6;
 stopTime = 26;
 
@@ -32,26 +31,27 @@ stopTime = 26;
 % -------------------------------------------------------------------------
 % Import data
 
-samplePeriod = 1/256;
-if exist ('OCTAVE_VERSION', 'builtin') 
+samplePeriod = 1/1000.0;
+
 	xIMUdata = dlmread(filePath,',',1,0);
-	time = xIMUdata(:,1)*samplePeriod;
-	gyrX = xIMUdata(:,2);
-	gyrY = xIMUdata(:,3);
-	gyrZ = xIMUdata(:,4);
-	accX = xIMUdata(:,5);
-	accY = xIMUdata(:,6);
-	accZ = xIMUdata(:,7);
-else
-	xIMUdata = xIMUdataClass(filePath, 'InertialMagneticSampleRate', 1/samplePeriod);
-	time = xIMUdata.CalInertialAndMagneticData.Time;
-	gyrX = xIMUdata.CalInertialAndMagneticData.Gyroscope.X;
-	gyrY = xIMUdata.CalInertialAndMagneticData.Gyroscope.Y;
-	gyrZ = xIMUdata.CalInertialAndMagneticData.Gyroscope.Z;
-	accX = xIMUdata.CalInertialAndMagneticData.Accelerometer.X;
-	accY = xIMUdata.CalInertialAndMagneticData.Accelerometer.Y;
-	accZ = xIMUdata.CalInertialAndMagneticData.Accelerometer.Z;
-end 
+  ax = xIMUdata(:,1);
+  ay = xIMUdata(:,2);
+  az = xIMUdata(:,3);
+  gx = xIMUdata(:,4);
+  gy = xIMUdata(:,5);
+  gz = xIMUdata(:,6);
+  numDataPoints = size(xIMUdata);
+  accScaleToG = 32/power(2,15);
+  gyroScale = 4000/power(2,15);
+  time = (0:numDataPoints-1)*samplePeriod;
+  time = time(:);
+  accX = ax*accScaleToG;
+  accY = ay*accScaleToG;
+  accZ = az*accScaleToG;
+  gyrX = gx*gyroScale;
+  gyrY = gy*gyroScale;
+  gyrZ = gz*gyroScale;
+
 clear('xIMUdata');
 % -------------------------------------------------------------------------
 % Manually frame data

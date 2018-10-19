@@ -1,4 +1,4 @@
-function fig = SixDoFanimation(varargin)
+function fig = SixDofAnimation(varargin)
 
     %% Create local variables
 
@@ -98,7 +98,7 @@ function fig = SixDoFanimation(varargin)
 	if ~exist ('OCTAVE_VERSION', 'builtin')	%Octave 3.6.4 does not implement lighting
 		lighting phong;
 	end
-    set(gcf, 'Renderer', 'zbuffer');
+    %set(gcf, 'Renderer', 'zbuffer');
     hold on;
     axis equal;
     grid on;
